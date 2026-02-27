@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@unwinder/contracts": ["packages/contracts/src/index.ts"],
+      "@unwinder/compiler": ["packages/compiler/src/index.ts"],
+      "@unwinder/runtime": ["packages/runtime/src/index.ts"],
+      "@unwinder/snapshot": ["packages/snapshot/src/index.ts"],
+      "@unwinder/determinism": ["packages/determinism/src/index.ts"],
+      "@unwinder/node-runner": ["packages/node-runner/src/index.ts"],
+      "@unwinder/browser-runner": ["packages/browser-runner/src/index.ts"],
+      "@unwinder/delorean-adapter": ["packages/delorean-adapter/src/index.ts"]
+    },
+    "lib": ["ES2022"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true
+  }
+}

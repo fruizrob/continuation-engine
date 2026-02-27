@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "source": {
+    "repo": "/Users/feliperuiz/fruizrob/deloreanjs",
+    "subpath": "src/assets/example-inputs"
+  },
+  "scenarios": [
+    {
+      "id": "test1",
+      "file": "examples/test1.js",
+      "tags": ["timepoint", "bug-path", "baseline"]
+    },
+    {
+      "id": "test2",
+      "file": "examples/test2.js",
+      "tags": ["loop", "timepoint"]
+    },
+    {
+      "id": "test3",
+      "file": "examples/test3.js",
+      "tags": ["strategy", "timepoint"]
+    },
+    {
+      "id": "test4",
+      "file": "examples/test4.js",
+      "tags": ["branching", "timepoint"]
+    },
+    {
+      "id": "test5",
+      "file": "examples/test5.js",
+      "tags": ["collections", "implicit-timepoint"]
+    },
+    {
+      "id": "test6",
+      "file": "examples/test6.js",
+      "tags": ["nested-flow", "implicit-timepoint"]
+    },
+    {
+      "id": "breakpoint-example",
+      "file": "examples/breakpoint.example.js",
+      "tags": ["breakpoint", "pause-resume"]
+    },
+    {
+      "id": "fix-a-bug",
+      "file": "examples/fix-a-bug.example.js",
+      "tags": ["patch-resume", "timepoint"]
+    },
+    {
+      "id": "understand-a-bug",
+      "file": "examples/understand-a-bug.example.js",
+      "tags": ["analysis", "timepoint"]
+    },
+    {
+      "id": "objects-example",
+      "file": "examples/objects.example.js",
+      "tags": ["heap", "objects"]
+    },
+    {
+      "id": "experiment-scenarios",
+      "file": "examples/experiment-scenarios.example.js",
+      "tags": ["timeline", "experiments"]
+    }
+  ]
+}
