@@ -13,3 +13,4 @@ Quick checks:
 Golden fixtures:
 - `sources/node-runner-basic.js`: canonical runner input for regression
 - `golden/node-runner/*.json`: expected `compile|run|replay` reports
+- `golden/node-runner/replay-continue-gates.json`: replay report with `continueGates` enabled to assert opcode-transition determinism

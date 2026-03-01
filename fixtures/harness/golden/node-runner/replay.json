@@ -5,7 +5,7 @@
     "entry": "main",
     "chunk": "const accumulator = [1, 2, 3].reduce((sum, n) => sum + n, 0);\n\ndelorean.insertTimepoint(\"GoldenTimepoint\");\n\nconst continuation = __unwinder.callCC((cont) => cont);\nif (typeof continuation === \"function\") {\n  continuation;\n}\n\ndelorean.insertBreakpoint(\"GoldenBreakpoint\");\n\naccumulator;",
     "debugMap": {
-      "version": 1,
+      "version": 2,
       "markers": [
         {
           "id": "GoldenTimepoint",
@@ -25,10 +25,509 @@
         }
       ],
       "metrics": {
-        "callCCRewrites": 1
+        "callCCRewrites": 1,
+        "irInstructions": 15,
+        "loweredOpcodes": 15,
+        "loopEntries": 0,
+        "tryEntries": 0,
+        "functionEntries": 2
+      },
+      "ir": {
+        "version": 1,
+        "instructions": [
+          {
+            "index": 0,
+            "op": "STMT",
+            "loc": {
+              "line": 1,
+              "column": 0
+            },
+            "arg": {
+              "type": "VariableDeclaration"
+            }
+          },
+          {
+            "index": 1,
+            "op": "FN_ENTER",
+            "loc": {
+              "line": 1,
+              "column": 37
+            },
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "index": 2,
+            "op": "FN_EXIT",
+            "loc": {
+              "line": 1,
+              "column": 37
+            },
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "index": 3,
+            "op": "STMT",
+            "loc": {
+              "line": 3,
+              "column": 0
+            },
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "index": 4,
+            "op": "CHECKPOINT",
+            "loc": {
+              "line": 3,
+              "column": 0
+            },
+            "arg": {
+              "id": "GoldenTimepoint"
+            }
+          },
+          {
+            "index": 5,
+            "op": "STMT",
+            "loc": {
+              "line": 5,
+              "column": 0
+            },
+            "arg": {
+              "type": "VariableDeclaration"
+            }
+          },
+          {
+            "index": 6,
+            "op": "CALL_CC",
+            "loc": {
+              "line": 5,
+              "column": 21
+            }
+          },
+          {
+            "index": 7,
+            "op": "FN_ENTER",
+            "loc": {
+              "line": 5,
+              "column": 28
+            },
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "index": 8,
+            "op": "FN_EXIT",
+            "loc": {
+              "line": 5,
+              "column": 28
+            },
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "index": 9,
+            "op": "STMT",
+            "loc": {
+              "line": 6,
+              "column": 0
+            },
+            "arg": {
+              "type": "IfStatement"
+            }
+          },
+          {
+            "index": 10,
+            "op": "STMT",
+            "loc": {
+              "line": 6,
+              "column": 40
+            },
+            "arg": {
+              "type": "BlockStatement"
+            }
+          },
+          {
+            "index": 11,
+            "op": "STMT",
+            "loc": {
+              "line": 7,
+              "column": 2
+            },
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "index": 12,
+            "op": "STMT",
+            "loc": {
+              "line": 10,
+              "column": 0
+            },
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "index": 13,
+            "op": "BREAKPOINT",
+            "loc": {
+              "line": 10,
+              "column": 0
+            },
+            "arg": {
+              "id": "GoldenBreakpoint"
+            }
+          },
+          {
+            "index": 14,
+            "op": "STMT",
+            "loc": {
+              "line": 12,
+              "column": 0
+            },
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          }
+        ]
+      },
+      "lowering": {
+        "version": 1,
+        "entryPc": 0,
+        "opcodes": [
+          {
+            "pc": 0,
+            "op": "STMT",
+            "nextPc": 1,
+            "arg": {
+              "type": "VariableDeclaration"
+            }
+          },
+          {
+            "pc": 1,
+            "op": "FN_ENTER",
+            "nextPc": 2,
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "pc": 2,
+            "op": "FN_EXIT",
+            "nextPc": 3,
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "pc": 3,
+            "op": "STMT",
+            "nextPc": 4,
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "pc": 4,
+            "op": "CHECKPOINT",
+            "nextPc": 5,
+            "arg": {
+              "id": "GoldenTimepoint"
+            }
+          },
+          {
+            "pc": 5,
+            "op": "STMT",
+            "nextPc": 6,
+            "arg": {
+              "type": "VariableDeclaration"
+            }
+          },
+          {
+            "pc": 6,
+            "op": "CALL_CC",
+            "nextPc": 7
+          },
+          {
+            "pc": 7,
+            "op": "FN_ENTER",
+            "nextPc": 8,
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "pc": 8,
+            "op": "FN_EXIT",
+            "nextPc": 9,
+            "arg": {
+              "name": "anonymous"
+            }
+          },
+          {
+            "pc": 9,
+            "op": "STMT",
+            "nextPc": 10,
+            "arg": {
+              "type": "IfStatement"
+            }
+          },
+          {
+            "pc": 10,
+            "op": "STMT",
+            "nextPc": 11,
+            "arg": {
+              "type": "BlockStatement"
+            }
+          },
+          {
+            "pc": 11,
+            "op": "STMT",
+            "nextPc": 12,
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "pc": 12,
+            "op": "STMT",
+            "nextPc": 13,
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          },
+          {
+            "pc": 13,
+            "op": "BREAKPOINT",
+            "nextPc": 14,
+            "arg": {
+              "id": "GoldenBreakpoint"
+            }
+          },
+          {
+            "pc": 14,
+            "op": "STMT",
+            "nextPc": -1,
+            "arg": {
+              "type": "ExpressionStatement"
+            }
+          }
+        ],
+        "pcToLoc": {
+          "0": {
+            "line": 1,
+            "column": 0
+          },
+          "1": {
+            "line": 1,
+            "column": 37
+          },
+          "2": {
+            "line": 1,
+            "column": 37
+          },
+          "3": {
+            "line": 3,
+            "column": 0
+          },
+          "4": {
+            "line": 3,
+            "column": 0
+          },
+          "5": {
+            "line": 5,
+            "column": 0
+          },
+          "6": {
+            "line": 5,
+            "column": 21
+          },
+          "7": {
+            "line": 5,
+            "column": 28
+          },
+          "8": {
+            "line": 5,
+            "column": 28
+          },
+          "9": {
+            "line": 6,
+            "column": 0
+          },
+          "10": {
+            "line": 6,
+            "column": 40
+          },
+          "11": {
+            "line": 7,
+            "column": 2
+          },
+          "12": {
+            "line": 10,
+            "column": 0
+          },
+          "13": {
+            "line": 10,
+            "column": 0
+          },
+          "14": {
+            "line": 12,
+            "column": 0
+          }
+        },
+        "locToPc": {
+          "1:0": [
+            0
+          ],
+          "1:37": [
+            1,
+            2
+          ],
+          "3:0": [
+            3,
+            4
+          ],
+          "5:0": [
+            5
+          ],
+          "5:21": [
+            6
+          ],
+          "5:28": [
+            7,
+            8
+          ],
+          "6:0": [
+            9
+          ],
+          "6:40": [
+            10
+          ],
+          "7:2": [
+            11
+          ],
+          "10:0": [
+            12,
+            13
+          ],
+          "12:0": [
+            14
+          ]
+        }
+      },
+      "stepMap": {
+        "pcToLoc": {
+          "0": {
+            "line": 1,
+            "column": 0
+          },
+          "1": {
+            "line": 1,
+            "column": 37
+          },
+          "2": {
+            "line": 1,
+            "column": 37
+          },
+          "3": {
+            "line": 3,
+            "column": 0
+          },
+          "4": {
+            "line": 3,
+            "column": 0
+          },
+          "5": {
+            "line": 5,
+            "column": 0
+          },
+          "6": {
+            "line": 5,
+            "column": 21
+          },
+          "7": {
+            "line": 5,
+            "column": 28
+          },
+          "8": {
+            "line": 5,
+            "column": 28
+          },
+          "9": {
+            "line": 6,
+            "column": 0
+          },
+          "10": {
+            "line": 6,
+            "column": 40
+          },
+          "11": {
+            "line": 7,
+            "column": 2
+          },
+          "12": {
+            "line": 10,
+            "column": 0
+          },
+          "13": {
+            "line": 10,
+            "column": 0
+          },
+          "14": {
+            "line": 12,
+            "column": 0
+          }
+        },
+        "locToPc": {
+          "1:0": [
+            0
+          ],
+          "1:37": [
+            1,
+            2
+          ],
+          "3:0": [
+            3,
+            4
+          ],
+          "5:0": [
+            5
+          ],
+          "5:21": [
+            6
+          ],
+          "5:28": [
+            7,
+            8
+          ],
+          "6:0": [
+            9
+          ],
+          "6:40": [
+            10
+          ],
+          "7:2": [
+            11
+          ],
+          "10:0": [
+            12,
+            13
+          ],
+          "12:0": [
+            14
+          ]
+        }
       }
     },
-    "irHash": "7184ce13934b28cb6dd723288746071912a0e059b91f9a8f6337253316b667bc",
+    "irHash": "64634c6cec2a4f639da6969d4dc48f060058aaa698fab88feb0f3a641af6f739",
     "instrumentationMode": "checkpoint-first"
   },
   "diagnostics": [],
@@ -87,7 +586,7 @@
       "output": {
         "status": "running"
       },
-      "timestampMs": 1772338951398
+      "timestampMs": 1772341150040
     },
     {
       "seq": 2,
@@ -99,7 +598,7 @@
       "output": {
         "snapshotId": "golden-checkpoint::1"
       },
-      "timestampMs": 1772338951398
+      "timestampMs": 1772341150040
     },
     {
       "seq": 3,
@@ -114,7 +613,7 @@
       "output": {
         "timelineId": 1
       },
-      "timestampMs": 1772338951398
+      "timestampMs": 1772341150040
     }
   ],
   "replayGate": {

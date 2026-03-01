@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { compile } from "@unwinder/compiler";
 import type {
   CompileOptions,
+  ContinueResult,
   Diagnostic,
   EventLogEntry,
   EventLogKind,
@@ -40,6 +41,7 @@ export type NodeRunnerOptions = {
   checkpointId?: string;
   snapshotId?: string;
   patch?: HeapPatch;
+  continueGates?: number;
   expectedDeterminismLog?: EventLogEntry[];
 };
 
@@ -52,6 +54,7 @@ export type NodeRunnerReport = {
   checkpointId?: string;
   snapshotId?: string;
   resumeResult?: ResumeResult;
+  continueResults?: ContinueResult[];
   scope?: ScopeState;
   determinismLog?: EventLogEntry[];
   replayGate?: ReplayGateResult;
@@ -71,6 +74,7 @@ type ParsedCliArgs = {
   snapshotId?: string;
   outFile?: string;
   patch?: HeapPatch;
+  continueGates?: number;
   eventLogFilePath?: string;
 };
 
@@ -215,6 +219,19 @@ function compareDeterminismLogs(expected: EventLogEntry[], actual: EventLogEntry
   return undefined;
 }
 
+function parseContinueGates(raw: string): number {
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`Invalid continue gate count: ${raw}`);
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`Invalid continue gate count: ${raw}`);
+  }
+
+  return parsed;
+}
+
 function parseCliArgs(argv: string[]): ParsedCliArgs {
   const [commandRaw, filePath, ...rest] = argv;
   if (!commandRaw || (commandRaw !== "compile" && commandRaw !== "run" && commandRaw !== "replay")) {
@@ -268,6 +285,12 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
 
     if (token === "--event-log") {
       parsed.eventLogFilePath = next;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--continue-gates") {
+      parsed.continueGates = parseContinueGates(next);
       index += 1;
       continue;
     }
@@ -327,6 +350,20 @@ export function runNodeArtifact(input: NodeRunnerInput, options: NodeRunnerOptio
   report.snapshotId = snapshotId;
 
   report.resumeResult = session.resume(snapshotId, options.patch);
+
+  if (report.resumeResult.status !== "error" && (options.continueGates ?? 0) > 0) {
+    const continueResults: ContinueResult[] = [];
+    const maxGates = options.continueGates ?? 0;
+    for (let index = 0; index < maxGates; index += 1) {
+      const continueResult = session.continue();
+      continueResults.push(continueResult);
+      if (continueResult.status !== "paused") {
+        break;
+      }
+    }
+    report.continueResults = continueResults;
+  }
+
   report.scope = session.inspect();
   report.determinismLog = session.getDeterminismLog();
 
@@ -397,6 +434,9 @@ export async function runNodeCli(argv: string[], io: CliIo = createDefaultIo()):
     }
     if (parsed.patch) {
       runnerOptions.patch = parsed.patch;
+    }
+    if (typeof parsed.continueGates === "number") {
+      runnerOptions.continueGates = parsed.continueGates;
     }
     if (parsed.eventLogFilePath) {
       const eventLogRaw = await io.readFile(parsed.eventLogFilePath);

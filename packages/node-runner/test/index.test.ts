@@ -21,6 +21,36 @@ function createArtifact(): ProgramArtifact {
   };
 }
 
+function createLoweredArtifact(): ProgramArtifact {
+  return {
+    version: "2.0",
+    entry: "main",
+    chunk: "const x = 1;",
+    debugMap: {
+      lowering: {
+        version: 1,
+        entryPc: 0,
+        opcodes: [
+          { pc: 0, op: "STMT", nextPc: 1 },
+          { pc: 1, op: "CHECKPOINT", nextPc: 2, arg: { id: "tp-node-runner" } },
+          { pc: 2, op: "STMT", nextPc: 3 },
+          { pc: 3, op: "BREAKPOINT", nextPc: 4, arg: { id: "bp-node-runner" } },
+          { pc: 4, op: "STMT", nextPc: -1 },
+        ],
+        pcToLoc: {
+          "0": { line: 1, column: 0 },
+          "1": { line: 2, column: 0 },
+          "2": { line: 3, column: 0 },
+          "3": { line: 4, column: 0 },
+          "4": { line: 5, column: 0 },
+        },
+      },
+    },
+    irHash: "lowered-hash",
+    instrumentationMode: "checkpoint-first",
+  };
+}
+
 function repoRootFromPackage(): string {
   return path.resolve(process.cwd(), "../..");
 }
@@ -111,6 +141,32 @@ test("runNodeArtifact run command resumes and applies patch", () => {
   assert.ok((report.determinismLog?.length ?? 0) > 0);
 });
 
+test("runNodeArtifact run command optionally executes continue gates", () => {
+  const report = runNodeArtifact(
+    {
+      artifact: createLoweredArtifact(),
+    },
+    {
+      command: "run",
+      checkpointId: "tp-node-lowered",
+      continueGates: 3,
+    },
+  );
+
+  assert.equal(report.resumeResult?.status, "resumed");
+  assert.equal(report.continueResults?.length, 3);
+  assert.equal(report.continueResults?.[0]?.status, "paused");
+  assert.equal(report.continueResults?.[1]?.status, "paused");
+  assert.equal(report.continueResults?.[2]?.status, "finished");
+  assert.equal(report.continueResults?.[0]?.reason, "checkpoint:tp-node-runner");
+  assert.equal(report.continueResults?.[1]?.reason, "breakpoint:bp-node-runner");
+
+  const transitionAsserts = (report.determinismLog ?? []).filter(
+    (entry) => entry.op === "opcode.transition.assert",
+  );
+  assert.equal(transitionAsserts.length, 5);
+});
+
 test("runNodeArtifact replay command with unknown snapshot reports error", () => {
   const report = runNodeArtifact(
     {
@@ -127,26 +183,29 @@ test("runNodeArtifact replay command with unknown snapshot reports error", () =>
 
 test("runNodeArtifact replay passes when deterministic log matches", () => {
   const baseline = runNodeArtifact(
-    { artifact: createArtifact() },
+    { artifact: createLoweredArtifact() },
     {
       command: "run",
       checkpointId: "deterministic",
       patch: { value: 1 },
+      continueGates: 3,
     },
   );
   const baselineLog = baseline.determinismLog ?? [];
 
   const replay = runNodeArtifact(
-    { artifact: createArtifact() },
+    { artifact: createLoweredArtifact() },
     {
       command: "replay",
       checkpointId: "deterministic",
       patch: { value: 1 },
+      continueGates: 3,
       expectedDeterminismLog: baselineLog,
     },
   );
 
   assert.equal(replay.resumeResult?.status, "resumed");
+  assert.equal(replay.continueResults?.[2]?.status, "finished");
   assert.equal(replay.replayGate?.ok, true);
 });
 
@@ -218,6 +277,37 @@ test("runNodeCli writes output file when --out is provided", async () => {
   const content = files.get("report.json") ?? "";
   assert.match(content, /"command": "run"/);
   assert.match(content, /"v": 7/);
+});
+
+test("runNodeCli forwards --continue-gates and includes continue results", async () => {
+  const files = new Map<string, string>();
+  files.set(
+    "input.js",
+    `const x = 1;
+delorean.insertTimepoint("CLI-TP");
+delorean.insertBreakpoint("CLI-BP");
+x;`,
+  );
+
+  const io = {
+    readFile: async (filePath: string) => files.get(filePath) ?? "",
+    writeFile: async (filePath: string, contents: string) => {
+      files.set(filePath, contents);
+    },
+    stdout: (_message: string) => undefined,
+    stderr: (_message: string) => undefined,
+  };
+
+  const exitCode = await runNodeCli(
+    ["run", "input.js", "--continue-gates", "3", "--out", "continue-report.json"],
+    io,
+  );
+
+  assert.equal(exitCode, 0);
+  const content = files.get("continue-report.json") ?? "";
+  assert.match(content, /"continueResults"/);
+  assert.match(content, /"checkpoint:CLI-TP"/);
+  assert.match(content, /"breakpoint:CLI-BP"/);
 });
 
 test("runNodeCli replay fails when --event-log diverges", async () => {
@@ -296,12 +386,61 @@ test("node runner reports match golden fixtures", () => {
     },
   );
 
+  const runContinueReport = runNodeArtifact(
+    { source },
+    {
+      command: "run",
+      checkpointId: "golden-checkpoint",
+      patch: { patched: 42 },
+      continueGates: 3,
+    },
+  );
+  const continueMismatchLog: EventLogEntry[] = [...(runContinueReport.determinismLog ?? [])];
+  const continueTransitionIndex = continueMismatchLog.findIndex(
+    (entry) => entry.op === "opcode.transition.assert",
+  );
+  const continueMismatchIndex = continueTransitionIndex >= 0 ? continueTransitionIndex : 0;
+  if (continueMismatchLog.length > 0) {
+    continueMismatchLog[continueMismatchIndex] = {
+      ...(continueMismatchLog[continueMismatchIndex] as EventLogEntry),
+      op: "mismatch-op",
+    };
+  }
+  const replayContinueReport = runNodeArtifact(
+    { source },
+    {
+      command: "replay",
+      checkpointId: "golden-checkpoint",
+      patch: { patched: 42 },
+      continueGates: 3,
+      expectedDeterminismLog: continueMismatchLog,
+    },
+  );
+  const continueTransitionAssertions = (replayContinueReport.determinismLog ?? []).filter(
+    (entry) => entry.op === "opcode.transition.assert",
+  );
+  assert.ok(continueTransitionAssertions.length > 0);
+
   const goldenDir = path.join(repoRoot, "fixtures", "harness", "golden", "node-runner");
   const goldenCompile = JSON.parse(readFileSync(path.join(goldenDir, "compile.json"), "utf8"));
   const goldenRun = JSON.parse(readFileSync(path.join(goldenDir, "run.json"), "utf8"));
   const goldenReplay = JSON.parse(readFileSync(path.join(goldenDir, "replay.json"), "utf8"));
+  const goldenRunContinue = JSON.parse(
+    readFileSync(path.join(goldenDir, "run-continue-gates.json"), "utf8"),
+  );
+  const goldenReplayContinue = JSON.parse(
+    readFileSync(path.join(goldenDir, "replay-continue-gates.json"), "utf8"),
+  );
 
   assert.deepEqual(normalizeReportForGolden(compileReport), normalizeReportForGolden(goldenCompile));
   assert.deepEqual(normalizeReportForGolden(runReport), normalizeReportForGolden(goldenRun));
   assert.deepEqual(normalizeReportForGolden(replayReport), normalizeReportForGolden(goldenReplay));
+  assert.deepEqual(
+    normalizeReportForGolden(runContinueReport),
+    normalizeReportForGolden(goldenRunContinue),
+  );
+  assert.deepEqual(
+    normalizeReportForGolden(replayContinueReport),
+    normalizeReportForGolden(goldenReplayContinue),
+  );
 });

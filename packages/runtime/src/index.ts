@@ -14,6 +14,7 @@ import type {
   SessionEventPayloadMap,
   SessionOptions,
   SnapshotId,
+  SourceLoc,
   StepResult,
   UnsupportedRecord,
 } from "@unwinder/contracts";
@@ -25,11 +26,142 @@ type CheckpointEntry = {
   snapshotId: SnapshotId;
   consumed: boolean;
   bindings: Record<string, unknown>;
+  machinePc: number;
+  stepIndex: number;
+  machineFinished: boolean;
 };
 
 type HandlerMap = {
   [K in SessionEvent]: Set<(payload: SessionEventPayloadMap[K]) => void>;
 };
+
+type RuntimeOpcode = {
+  pc: number;
+  op: string;
+  nextPc: number;
+  arg?: Record<string, unknown>;
+};
+
+type RuntimeMachine = {
+  entryPc: number;
+  opcodes: RuntimeOpcode[];
+  opcodesByPc: Map<number, RuntimeOpcode>;
+  pcToLoc: Record<string, SourceLoc>;
+};
+
+type AdvanceOutcome = {
+  status: "paused" | "finished" | "error";
+  reason?: string;
+  loc?: SourceLoc;
+  boundary: boolean;
+};
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSourceLoc(value: unknown): value is SourceLoc {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  return typeof value.line === "number" && typeof value.column === "number";
+}
+
+function parsePcToLoc(raw: unknown): Record<string, SourceLoc> {
+  if (!isObjectRecord(raw)) {
+    return {};
+  }
+
+  const parsed: Record<string, SourceLoc> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!isSourceLoc(value)) {
+      continue;
+    }
+    parsed[key] = {
+      line: value.line,
+      column: value.column,
+    };
+  }
+
+  return parsed;
+}
+
+function parseRuntimeOpcodes(raw: unknown): RuntimeOpcode[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const opcodes: RuntimeOpcode[] = [];
+  for (const entry of raw) {
+    if (!isObjectRecord(entry)) {
+      continue;
+    }
+
+    if (
+      typeof entry.pc !== "number" ||
+      typeof entry.op !== "string" ||
+      typeof entry.nextPc !== "number"
+    ) {
+      continue;
+    }
+
+    const opcode: RuntimeOpcode = {
+      pc: entry.pc,
+      op: entry.op,
+      nextPc: entry.nextPc,
+    };
+
+    if (isObjectRecord(entry.arg)) {
+      opcode.arg = entry.arg;
+    }
+
+    opcodes.push(opcode);
+  }
+
+  opcodes.sort((a, b) => a.pc - b.pc);
+  return opcodes;
+}
+
+function readMachineFromArtifact(artifact: ProgramArtifact): RuntimeMachine | null {
+  if (!isObjectRecord(artifact.debugMap)) {
+    return null;
+  }
+
+  const lowering = artifact.debugMap.lowering;
+  if (!isObjectRecord(lowering)) {
+    return null;
+  }
+
+  const opcodes = parseRuntimeOpcodes(lowering.opcodes);
+  if (opcodes.length === 0) {
+    return null;
+  }
+  const firstOpcode = opcodes[0];
+  if (!firstOpcode) {
+    return null;
+  }
+
+  const opcodesByPc = new Map<number, RuntimeOpcode>();
+  for (const opcode of opcodes) {
+    opcodesByPc.set(opcode.pc, opcode);
+  }
+
+  const declaredEntryPc = typeof lowering.entryPc === "number" ? lowering.entryPc : firstOpcode.pc;
+  const entryPc = opcodesByPc.has(declaredEntryPc) ? declaredEntryPc : firstOpcode.pc;
+
+  const pcToLocFromLowering = parsePcToLoc(lowering.pcToLoc);
+  const stepMap = artifact.debugMap.stepMap;
+  const pcToLocFromStepMap = isObjectRecord(stepMap) ? parsePcToLoc(stepMap.pcToLoc) : {};
+  const pcToLoc = Object.keys(pcToLocFromLowering).length > 0 ? pcToLocFromLowering : pcToLocFromStepMap;
+
+  return {
+    entryPc,
+    opcodes,
+    opcodesByPc,
+    pcToLoc,
+  };
+}
 
 function cloneBindings(input: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(input));
@@ -50,9 +182,15 @@ function evaluateWithScope(expr: string, scope: Record<string, unknown>): EvalRe
 class InMemoryDebugSession implements DebugSession {
   private readonly options: Required<Pick<SessionOptions, "mode">> & SessionOptions;
 
+  private readonly machine: RuntimeMachine | null;
+
   private timelineId = 0;
 
   private stepIndex = 0;
+
+  private machinePc = 0;
+
+  private machineFinished = false;
 
   private readonly handlers: HandlerMap = {
     paused: new Set(),
@@ -79,6 +217,9 @@ class InMemoryDebugSession implements DebugSession {
       mode: "debug",
       ...options,
     };
+    this.machine = readMachineFromArtifact(artifact);
+    this.machinePc = this.machine?.entryPc ?? 0;
+    this.machineFinished = this.machine ? this.machine.opcodes.length === 0 : false;
     this.controller.attach(this);
   }
 
@@ -92,10 +233,162 @@ class InMemoryDebugSession implements DebugSession {
     this.controller.record("host", op, input, output);
   }
 
+  private getCurrentLoc(pc: number): SourceLoc | undefined {
+    return this.machine?.pcToLoc[String(pc)];
+  }
+
+  private recordOpcodeAssertion(
+    mode: "step" | "continue",
+    fromPc: number,
+    opcode: RuntimeOpcode,
+    checks: {
+      pcMatchesOpcode: boolean;
+      nextPcExists: boolean;
+    },
+  ): void {
+    this.record(
+      "opcode.transition.assert",
+      {
+        mode,
+        fromPc,
+        opcode: opcode.op,
+        declaredPc: opcode.pc,
+        declaredNextPc: opcode.nextPc,
+      },
+      {
+        ok: checks.pcMatchesOpcode && checks.nextPcExists,
+        checks,
+      },
+    );
+  }
+
+  private advanceMachine(mode: "step" | "continue"): AdvanceOutcome {
+    if (!this.machine) {
+      return {
+        status: "paused",
+        reason: "no-machine",
+        boundary: false,
+      };
+    }
+
+    if (this.machineFinished || this.machinePc === -1) {
+      this.machineFinished = true;
+      this.emit("finish", { value: undefined });
+      return {
+        status: "finished",
+        boundary: false,
+      };
+    }
+
+    const fromPc = this.machinePc;
+    const opcode = this.machine.opcodesByPc.get(fromPc);
+    if (!opcode) {
+      this.record(
+        "opcode.transition.assert",
+        {
+          mode,
+          fromPc,
+          opcode: "missing",
+          declaredPc: fromPc,
+          declaredNextPc: -1,
+        },
+        {
+          ok: false,
+          checks: {
+            pcMatchesOpcode: false,
+            nextPcExists: false,
+          },
+        },
+      );
+      this.emit("error", { message: `Opcode not found at pc=${fromPc}` });
+      return {
+        status: "error",
+        reason: "opcode-missing",
+        boundary: false,
+      };
+    }
+
+    const checks = {
+      pcMatchesOpcode: opcode.pc === fromPc,
+      nextPcExists: opcode.nextPc === -1 || this.machine.opcodesByPc.has(opcode.nextPc),
+    };
+    this.recordOpcodeAssertion(mode, fromPc, opcode, checks);
+
+    if (!checks.pcMatchesOpcode || !checks.nextPcExists) {
+      this.emit("error", {
+        message: `Invalid opcode transition from pc=${fromPc} to nextPc=${opcode.nextPc}`,
+      });
+      return {
+        status: "error",
+        reason: "opcode-transition-invalid",
+        boundary: false,
+      };
+    }
+
+    const loc = this.getCurrentLoc(fromPc);
+    this.stepIndex += 1;
+    this.machinePc = opcode.nextPc;
+    this.machineFinished = opcode.nextPc === -1;
+
+    if (opcode.op === "CHECKPOINT" || opcode.op === "BREAKPOINT") {
+      const checkpointId = typeof opcode.arg?.id === "string" ? opcode.arg.id : undefined;
+      const reasonPrefix = opcode.op === "CHECKPOINT" ? "checkpoint" : "breakpoint";
+      const reason = checkpointId ? `${reasonPrefix}:${checkpointId}` : reasonPrefix;
+
+      if (opcode.op === "CHECKPOINT") {
+        if (checkpointId) {
+          this.emit("paused", { reason, checkpointId });
+        } else {
+          this.emit("paused", { reason });
+        }
+      } else {
+        this.emit("paused", { reason });
+      }
+
+      const paused: AdvanceOutcome = {
+        status: "paused",
+        reason,
+        boundary: true,
+      };
+      if (loc) {
+        paused.loc = loc;
+      }
+      return paused;
+    }
+
+    if (this.machineFinished) {
+      this.emit("finish", { value: undefined });
+      const finished: AdvanceOutcome = {
+        status: "finished",
+        boundary: false,
+      };
+      if (loc) {
+        finished.loc = loc;
+      }
+      return finished;
+    }
+
+    const paused: AdvanceOutcome = {
+      status: "paused",
+      reason: "step",
+      boundary: false,
+    };
+    if (loc) {
+      paused.loc = loc;
+    }
+    return paused;
+  }
+
   run(): RunResult {
     if (this.disposed) {
       this.record("run:error", { disposed: true }, { status: "error" });
       return { status: "error", value: "session disposed" };
+    }
+
+    if (this.machine) {
+      this.machinePc = this.machine.entryPc;
+      this.machineFinished = false;
+      this.stepIndex = 0;
     }
 
     this.record("run", { entry: this.artifact.entry }, { status: "running" });
@@ -123,12 +416,46 @@ class InMemoryDebugSession implements DebugSession {
       return { status: "error" };
     }
 
-    this.stepIndex += 1;
-    this.record("step", { stepIndex: this.stepIndex }, { status: "paused" });
-    return {
+    if (!this.machine) {
+      this.stepIndex += 1;
+      this.record("step", { stepIndex: this.stepIndex }, { status: "paused" });
+      return {
+        status: "paused",
+        stepIndex: this.stepIndex,
+      };
+    }
+
+    const outcome = this.advanceMachine("step");
+    if (outcome.status === "error") {
+      this.record("step:error", { stepIndex: this.stepIndex }, { reason: outcome.reason });
+      return { status: "error" };
+    }
+
+    if (outcome.status === "finished") {
+      this.record("step", { stepIndex: this.stepIndex }, { status: "finished" });
+      const result: StepResult = {
+        status: "finished",
+        stepIndex: this.stepIndex,
+      };
+      if (outcome.loc) {
+        result.loc = outcome.loc;
+      }
+      return result;
+    }
+
+    this.record(
+      "step",
+      { stepIndex: this.stepIndex, reason: outcome.reason, pc: this.machinePc },
+      { status: "paused" },
+    );
+    const result: StepResult = {
       status: "paused",
       stepIndex: this.stepIndex,
     };
+    if (outcome.loc) {
+      result.loc = outcome.loc;
+    }
+    return result;
   }
 
   continue(): ContinueResult {
@@ -137,8 +464,31 @@ class InMemoryDebugSession implements DebugSession {
       return { status: "error", reason: "session disposed" };
     }
 
-    this.record("continue", {}, { status: "paused" });
-    return { status: "paused", reason: "awaiting checkpoint or resume" };
+    if (!this.machine) {
+      this.record("continue", {}, { status: "paused" });
+      return { status: "paused", reason: "awaiting checkpoint or resume" };
+    }
+
+    let transitions = 0;
+    for (;;) {
+      const outcome = this.advanceMachine("continue");
+      transitions += 1;
+
+      if (outcome.status === "error") {
+        this.record("continue:error", { transitions }, { reason: outcome.reason });
+        return { status: "error", reason: outcome.reason ?? "continue-error" };
+      }
+
+      if (outcome.status === "finished") {
+        this.record("continue", { transitions }, { status: "finished" });
+        return { status: "finished" };
+      }
+
+      if (outcome.boundary) {
+        this.record("continue", { transitions, reason: outcome.reason }, { status: "paused" });
+        return { status: "paused", reason: outcome.reason ?? "paused" };
+      }
+    }
   }
 
   checkpoint(id: CheckpointId, _meta?: Record<string, unknown>): SnapshotId {
@@ -168,6 +518,9 @@ class InMemoryDebugSession implements DebugSession {
       snapshotId,
       consumed: false,
       bindings: cloneBindings((restoreHeap(heap).state.bindings as Record<string, unknown>) ?? {}),
+      machinePc: this.machinePc,
+      stepIndex: this.stepIndex,
+      machineFinished: this.machineFinished,
     });
 
     this.emit("checkpoint", {
@@ -202,6 +555,9 @@ class InMemoryDebugSession implements DebugSession {
       ...cloneBindings(checkpoint.bindings),
       ...(patch ?? {}),
     };
+    this.machinePc = checkpoint.machinePc;
+    this.stepIndex = checkpoint.stepIndex;
+    this.machineFinished = checkpoint.machineFinished;
 
     checkpoint.consumed = this.options.oneShotDefault !== false;
     this.timelineId += 1;
@@ -236,6 +592,9 @@ class InMemoryDebugSession implements DebugSession {
       snapshotId: cloneId,
       consumed: false,
       bindings: cloneBindings(checkpoint.bindings),
+      machinePc: checkpoint.machinePc,
+      stepIndex: checkpoint.stepIndex,
+      machineFinished: checkpoint.machineFinished,
     });
     this.record("clone", { snapshotId }, { cloneId });
 

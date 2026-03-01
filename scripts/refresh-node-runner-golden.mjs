@@ -55,10 +55,51 @@ const replayReport = runNodeArtifact(
   },
 );
 
+const runContinueReport = runNodeArtifact(
+  { source },
+  {
+    command: "run",
+    checkpointId: "golden-checkpoint",
+    patch: { patched: 42 },
+    continueGates: 3,
+  },
+);
+
+const continueMismatchLog = [...(runContinueReport.determinismLog ?? [])];
+const continueTransitionIndex = continueMismatchLog.findIndex((entry) => entry.op === "opcode.transition.assert");
+const mismatchIndex = continueTransitionIndex >= 0 ? continueTransitionIndex : 0;
+if (continueMismatchLog.length > 0) {
+  continueMismatchLog[mismatchIndex] = {
+    ...continueMismatchLog[mismatchIndex],
+    op: "mismatch-op",
+  };
+}
+
+const replayContinueReport = runNodeArtifact(
+  { source },
+  {
+    command: "replay",
+    checkpointId: "golden-checkpoint",
+    patch: { patched: 42 },
+    continueGates: 3,
+    expectedDeterminismLog: continueMismatchLog,
+  },
+);
+
 await mkdir(outputDir, { recursive: true });
 
 await writeFile(path.join(outputDir, "compile.json"), `${JSON.stringify(compileReport, null, 2)}\n`, "utf8");
 await writeFile(path.join(outputDir, "run.json"), `${JSON.stringify(runReport, null, 2)}\n`, "utf8");
 await writeFile(path.join(outputDir, "replay.json"), `${JSON.stringify(replayReport, null, 2)}\n`, "utf8");
+await writeFile(
+  path.join(outputDir, "run-continue-gates.json"),
+  `${JSON.stringify(runContinueReport, null, 2)}\n`,
+  "utf8",
+);
+await writeFile(
+  path.join(outputDir, "replay-continue-gates.json"),
+  `${JSON.stringify(replayContinueReport, null, 2)}\n`,
+  "utf8",
+);
 
 process.stdout.write(`golden-refresh-ok ${outputDir}\n`);

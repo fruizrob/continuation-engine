@@ -1,5 +1,5 @@
 {
-  "command": "run",
+  "command": "replay",
   "artifact": {
     "version": "2.0",
     "entry": "main",
@@ -552,6 +552,29 @@
         "snapshotId": "golden-checkpoint::1",
         "timelineId": 1
       }
+    },
+    {
+      "event": "paused",
+      "payload": {
+        "reason": "checkpoint:GoldenTimepoint",
+        "checkpointId": "GoldenTimepoint"
+      }
+    },
+    {
+      "event": "paused",
+      "payload": {
+        "reason": "breakpoint:GoldenBreakpoint"
+      }
+    },
+    {
+      "event": "finish",
+      "payload": {}
+    },
+    {
+      "event": "error",
+      "payload": {
+        "message": "Determinism log mismatch: entry 3 differs"
+      }
     }
   ],
   "runResult": {
@@ -560,10 +583,23 @@
   "checkpointId": "golden-checkpoint",
   "snapshotId": "golden-checkpoint::1",
   "resumeResult": {
-    "status": "resumed",
+    "status": "error",
     "timelineId": 1,
     "snapshotId": "golden-checkpoint::1"
   },
+  "continueResults": [
+    {
+      "status": "paused",
+      "reason": "checkpoint:GoldenTimepoint"
+    },
+    {
+      "status": "paused",
+      "reason": "breakpoint:GoldenBreakpoint"
+    },
+    {
+      "status": "finished"
+    }
+  ],
   "scope": {
     "bindings": {
       "patched": 42
@@ -580,7 +616,7 @@
       "output": {
         "status": "running"
       },
-      "timestampMs": 1772341150037
+      "timestampMs": 1772341150043
     },
     {
       "seq": 2,
@@ -592,7 +628,7 @@
       "output": {
         "snapshotId": "golden-checkpoint::1"
       },
-      "timestampMs": 1772341150038
+      "timestampMs": 1772341150043
     },
     {
       "seq": 3,
@@ -607,7 +643,351 @@
       "output": {
         "timelineId": 1
       },
-      "timestampMs": 1772341150038
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 4,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 0,
+        "opcode": "STMT",
+        "declaredPc": 0,
+        "declaredNextPc": 1
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 5,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 1,
+        "opcode": "FN_ENTER",
+        "declaredPc": 1,
+        "declaredNextPc": 2
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 6,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 2,
+        "opcode": "FN_EXIT",
+        "declaredPc": 2,
+        "declaredNextPc": 3
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 7,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 3,
+        "opcode": "STMT",
+        "declaredPc": 3,
+        "declaredNextPc": 4
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 8,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 4,
+        "opcode": "CHECKPOINT",
+        "declaredPc": 4,
+        "declaredNextPc": 5
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 9,
+      "kind": "host",
+      "op": "continue",
+      "input": {
+        "transitions": 5,
+        "reason": "checkpoint:GoldenTimepoint"
+      },
+      "output": {
+        "status": "paused"
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 10,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 5,
+        "opcode": "STMT",
+        "declaredPc": 5,
+        "declaredNextPc": 6
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 11,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 6,
+        "opcode": "CALL_CC",
+        "declaredPc": 6,
+        "declaredNextPc": 7
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 12,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 7,
+        "opcode": "FN_ENTER",
+        "declaredPc": 7,
+        "declaredNextPc": 8
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 13,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 8,
+        "opcode": "FN_EXIT",
+        "declaredPc": 8,
+        "declaredNextPc": 9
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 14,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 9,
+        "opcode": "STMT",
+        "declaredPc": 9,
+        "declaredNextPc": 10
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 15,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 10,
+        "opcode": "STMT",
+        "declaredPc": 10,
+        "declaredNextPc": 11
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 16,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 11,
+        "opcode": "STMT",
+        "declaredPc": 11,
+        "declaredNextPc": 12
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 17,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 12,
+        "opcode": "STMT",
+        "declaredPc": 12,
+        "declaredNextPc": 13
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 18,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 13,
+        "opcode": "BREAKPOINT",
+        "declaredPc": 13,
+        "declaredNextPc": 14
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 19,
+      "kind": "host",
+      "op": "continue",
+      "input": {
+        "transitions": 9,
+        "reason": "breakpoint:GoldenBreakpoint"
+      },
+      "output": {
+        "status": "paused"
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 20,
+      "kind": "host",
+      "op": "opcode.transition.assert",
+      "input": {
+        "mode": "continue",
+        "fromPc": 14,
+        "opcode": "STMT",
+        "declaredPc": 14,
+        "declaredNextPc": -1
+      },
+      "output": {
+        "ok": true,
+        "checks": {
+          "pcMatchesOpcode": true,
+          "nextPcExists": true
+        }
+      },
+      "timestampMs": 1772341150043
+    },
+    {
+      "seq": 21,
+      "kind": "host",
+      "op": "continue",
+      "input": {
+        "transitions": 1
+      },
+      "output": {
+        "status": "finished"
+      },
+      "timestampMs": 1772341150043
     }
-  ]
+  ],
+  "replayGate": {
+    "ok": false,
+    "expectedCount": 21,
+    "actualCount": 21,
+    "reason": "entry 3 differs"
+  }
 }
