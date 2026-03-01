@@ -10,14 +10,16 @@
       "default": "./dist/browser-runner/src/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test"
+    "test": "node --test dist/browser-runner/test"
   },
   "dependencies": {
-    "@unwinder/compiler": "0.1.0",
+    "@unwinder/contracts": "0.1.0",
     "@unwinder/runtime": "0.1.0"
   }
 }

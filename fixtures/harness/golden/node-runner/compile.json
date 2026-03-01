@@ -1,0 +1,36 @@
+{
+  "command": "compile",
+  "artifact": {
+    "version": "2.0",
+    "entry": "main",
+    "chunk": "const accumulator = [1, 2, 3].reduce((sum, n) => sum + n, 0);\n\ndelorean.insertTimepoint(\"GoldenTimepoint\");\n\nconst continuation = __unwinder.callCC((cont) => cont);\nif (typeof continuation === \"function\") {\n  continuation;\n}\n\ndelorean.insertBreakpoint(\"GoldenBreakpoint\");\n\naccumulator;",
+    "debugMap": {
+      "version": 1,
+      "markers": [
+        {
+          "id": "GoldenTimepoint",
+          "kind": "timepoint",
+          "loc": {
+            "line": 3,
+            "column": 0
+          }
+        },
+        {
+          "id": "GoldenBreakpoint",
+          "kind": "breakpoint",
+          "loc": {
+            "line": 10,
+            "column": 0
+          }
+        }
+      ],
+      "metrics": {
+        "callCCRewrites": 1
+      }
+    },
+    "irHash": "7184ce13934b28cb6dd723288746071912a0e059b91f9a8f6337253316b667bc",
+    "instrumentationMode": "checkpoint-first"
+  },
+  "diagnostics": [],
+  "events": []
+}

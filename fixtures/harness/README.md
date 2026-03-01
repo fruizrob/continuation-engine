@@ -8,3 +8,8 @@ Expected outputs:
 
 Quick checks:
 - `npm run fixtures:verify`
+- `npm run golden:refresh`
+
+Golden fixtures:
+- `sources/node-runner-basic.js`: canonical runner input for regression
+- `golden/node-runner/*.json`: expected `compile|run|replay` reports

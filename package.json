@@ -16,7 +16,8 @@
     "test": "npm run build && npm run -ws --if-present test",
     "lint": "npm run -ws --if-present lint",
     "fixtures:verify": "node ./fixtures/harness/verify-fixtures.mjs",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "golden:refresh": "npm run build && node ./scripts/refresh-node-runner-golden.mjs"
   },
   "devDependencies": {
     "@types/babel__generator": "^7.27.0",
