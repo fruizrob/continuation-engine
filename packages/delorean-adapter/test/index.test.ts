@@ -33,3 +33,44 @@ test("resumeTimepoint resolves checkpoint id to snapshot id", () => {
 
   session.dispose();
 });
+
+test("adapter/runtime integration supports timeline branching", () => {
+  const source = `delorean.insertTimepoint("BranchPoint");`;
+  const { artifact } = compileForDelorean(source);
+
+  const session = createDeloreanSession(artifact, { mode: "debug", oneShotDefault: true });
+  const baseSnapshot = session.checkpoint("BranchPoint");
+  const branchSnapshot = session.cloneContinuation(baseSnapshot);
+
+  const mainResume = resumeTimepoint(session, "BranchPoint", { branch: "main" });
+  const altResume = session.resume(branchSnapshot, { branch: "alt" });
+
+  assert.equal(mainResume.status, "resumed");
+  assert.equal(altResume.status, "resumed");
+  assert.notEqual(mainResume.timelineId, altResume.timelineId);
+  assert.equal(session.inspect().bindings.branch, "alt");
+
+  session.dispose();
+});
+
+test("adapter/runtime integration exposes deterministic event log assertions", () => {
+  const source = `delorean.insertTimepoint("DeterministicPoint");`;
+  const { artifact } = compileForDelorean(source);
+
+  const session = createDeloreanSession(artifact, { mode: "debug", oneShotDefault: true });
+  session.run();
+  session.checkpoint("DeterministicPoint");
+  resumeTimepoint(session, "DeterministicPoint", { a: 1, b: 2 });
+  session.evaluate("a + b");
+
+  const log = session.getDeterminismLog();
+  const ops = log.map((entry) => entry.op);
+
+  assert.ok(ops.includes("run"));
+  assert.ok(ops.includes("checkpoint"));
+  assert.ok(ops.includes("resume"));
+  assert.ok(ops.includes("evaluate"));
+  assert.ok(log.length >= 4);
+
+  session.dispose();
+});

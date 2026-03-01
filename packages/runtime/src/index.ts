@@ -2,6 +2,7 @@ import type {
   CheckpointId,
   ContinueResult,
   DebugSession,
+  EventLogEntry,
   EvalResult,
   HeapPatch,
   ProgramArtifact,
@@ -87,12 +88,17 @@ class InMemoryDebugSession implements DebugSession {
     }
   }
 
+  private record(op: string, input: unknown, output: unknown): void {
+    this.controller.record("host", op, input, output);
+  }
+
   run(): RunResult {
     if (this.disposed) {
+      this.record("run:error", { disposed: true }, { status: "error" });
       return { status: "error", value: "session disposed" };
     }
 
-    this.controller.record("host", "run", { entry: this.artifact.entry }, { status: "running" });
+    this.record("run", { entry: this.artifact.entry }, { status: "running" });
 
     if (this.options.mode === "run") {
       this.emit("finish", { value: undefined });
@@ -107,15 +113,18 @@ class InMemoryDebugSession implements DebugSession {
       return;
     }
 
+    this.record("pause", { reason }, { status: "paused" });
     this.emit("paused", { reason });
   }
 
   step(): StepResult {
     if (this.disposed) {
+      this.record("step:error", { disposed: true }, { status: "error" });
       return { status: "error" };
     }
 
     this.stepIndex += 1;
+    this.record("step", { stepIndex: this.stepIndex }, { status: "paused" });
     return {
       status: "paused",
       stepIndex: this.stepIndex,
@@ -124,14 +133,17 @@ class InMemoryDebugSession implements DebugSession {
 
   continue(): ContinueResult {
     if (this.disposed) {
+      this.record("continue:error", { disposed: true }, { status: "error" });
       return { status: "error", reason: "session disposed" };
     }
 
+    this.record("continue", {}, { status: "paused" });
     return { status: "paused", reason: "awaiting checkpoint or resume" };
   }
 
   checkpoint(id: CheckpointId, _meta?: Record<string, unknown>): SnapshotId {
     if (this.disposed) {
+      this.record("checkpoint:error", { checkpointId: id }, { reason: "disposed" });
       throw new Error("Session is disposed");
     }
 
@@ -162,23 +174,27 @@ class InMemoryDebugSession implements DebugSession {
       checkpointId: id,
       snapshotId,
     });
+    this.record("checkpoint", { checkpointId: id }, { snapshotId });
 
     return snapshotId;
   }
 
   resume(snapshotId: SnapshotId, patch?: HeapPatch): ResumeResult {
     if (this.disposed) {
+      this.record("resume:error", { snapshotId }, { reason: "disposed" });
       return { status: "error", timelineId: this.timelineId, snapshotId };
     }
 
     const checkpoint = this.checkpoints.get(snapshotId);
     if (!checkpoint) {
       this.emit("error", { message: `Snapshot not found: ${snapshotId}` });
+      this.record("resume:error", { snapshotId }, { reason: "snapshot-missing" });
       return { status: "error", timelineId: this.timelineId, snapshotId };
     }
 
     if (this.options.oneShotDefault !== false && checkpoint.consumed) {
       this.emit("error", { message: `Snapshot already consumed: ${snapshotId}` });
+      this.record("resume:error", { snapshotId }, { reason: "snapshot-consumed" });
       return { status: "error", timelineId: this.timelineId, snapshotId };
     }
 
@@ -193,6 +209,11 @@ class InMemoryDebugSession implements DebugSession {
     const warnings: UnsupportedRecord[] = [];
     this.emit("restored", { snapshotId, warnings });
     this.emit("resumed", { snapshotId, timelineId: this.timelineId });
+    this.record(
+      "resume",
+      { snapshotId, patchKeys: Object.keys(patch ?? {}) },
+      { timelineId: this.timelineId },
+    );
 
     return {
       status: "resumed",
@@ -204,6 +225,7 @@ class InMemoryDebugSession implements DebugSession {
   cloneContinuation(snapshotId: SnapshotId): SnapshotId {
     const checkpoint = this.checkpoints.get(snapshotId);
     if (!checkpoint) {
+      this.record("clone:error", { snapshotId }, { reason: "snapshot-missing" });
       throw new Error(`Snapshot not found: ${snapshotId}`);
     }
 
@@ -215,12 +237,19 @@ class InMemoryDebugSession implements DebugSession {
       consumed: false,
       bindings: cloneBindings(checkpoint.bindings),
     });
+    this.record("clone", { snapshotId }, { cloneId });
 
     return cloneId;
   }
 
   evaluate(expr: string, _frameId?: string): EvalResult {
-    return evaluateWithScope(expr, this.bindings);
+    const result = evaluateWithScope(expr, this.bindings);
+    this.record(
+      "evaluate",
+      { expression: expr },
+      { ok: result.ok, hasError: Boolean(result.error) },
+    );
+    return result;
   }
 
   inspect(frameId?: string): ScopeState {
@@ -245,7 +274,16 @@ class InMemoryDebugSession implements DebugSession {
     };
   }
 
+  getDeterminismLog(fromSeq = 0): EventLogEntry[] {
+    return this.controller.getLog(fromSeq);
+  }
+
+  loadDeterminismLog(entries: EventLogEntry[]): void {
+    this.controller.replay(entries);
+  }
+
   dispose(): void {
+    this.record("dispose", {}, { checkpoints: this.checkpoints.size });
     this.disposed = true;
     this.checkpoints.clear();
     this.controller.detach();

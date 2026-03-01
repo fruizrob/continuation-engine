@@ -165,6 +165,8 @@ export interface DebugSession {
     event: E,
     handler: (payload: SessionEventPayloadMap[E]) => void,
   ): () => void;
+  getDeterminismLog(fromSeq?: number): EventLogEntry[];
+  loadDeterminismLog(entries: EventLogEntry[]): void;
   dispose(): void;
 }
 
