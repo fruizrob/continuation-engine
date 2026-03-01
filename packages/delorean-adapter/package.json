@@ -2,19 +2,21 @@
   "name": "@unwinder/delorean-adapter",
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/delorean-adapter/src/index.js",
+  "types": "./dist/delorean-adapter/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/delorean-adapter/src/index.d.ts",
+      "default": "./dist/delorean-adapter/src/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test"
+    "test": "node --test dist/delorean-adapter/test"
   },
   "dependencies": {
     "@unwinder/compiler": "0.1.0",
