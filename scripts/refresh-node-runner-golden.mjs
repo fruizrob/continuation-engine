@@ -37,13 +37,21 @@ const runReport = runNodeArtifact(
   },
 );
 
+const mismatchLog = [...(runReport.determinismLog ?? [])];
+if (mismatchLog.length > 0) {
+  mismatchLog[0] = {
+    ...mismatchLog[0],
+    op: "mismatch-op",
+  };
+}
+
 const replayReport = runNodeArtifact(
   { source },
   {
     command: "replay",
     checkpointId: "golden-checkpoint",
-    snapshotId: "missing-snapshot",
     patch: { patched: 42 },
+    expectedDeterminismLog: mismatchLog,
   },
 );
 

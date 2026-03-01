@@ -41,9 +41,23 @@
       }
     },
     {
+      "event": "restored",
+      "payload": {
+        "snapshotId": "golden-checkpoint::1",
+        "warnings": []
+      }
+    },
+    {
+      "event": "resumed",
+      "payload": {
+        "snapshotId": "golden-checkpoint::1",
+        "timelineId": 1
+      }
+    },
+    {
       "event": "error",
       "payload": {
-        "message": "Snapshot not found: missing-snapshot"
+        "message": "Determinism log mismatch: entry 0 differs"
       }
     }
   ],
@@ -51,13 +65,62 @@
     "status": "running"
   },
   "checkpointId": "golden-checkpoint",
-  "snapshotId": "missing-snapshot",
+  "snapshotId": "golden-checkpoint::1",
   "resumeResult": {
     "status": "error",
-    "timelineId": 0,
-    "snapshotId": "missing-snapshot"
+    "timelineId": 1,
+    "snapshotId": "golden-checkpoint::1"
   },
   "scope": {
-    "bindings": {}
+    "bindings": {
+      "patched": 42
+    }
+  },
+  "determinismLog": [
+    {
+      "seq": 1,
+      "kind": "host",
+      "op": "run",
+      "input": {
+        "entry": "main"
+      },
+      "output": {
+        "status": "running"
+      },
+      "timestampMs": 1772338951398
+    },
+    {
+      "seq": 2,
+      "kind": "host",
+      "op": "checkpoint",
+      "input": {
+        "checkpointId": "golden-checkpoint"
+      },
+      "output": {
+        "snapshotId": "golden-checkpoint::1"
+      },
+      "timestampMs": 1772338951398
+    },
+    {
+      "seq": 3,
+      "kind": "host",
+      "op": "resume",
+      "input": {
+        "snapshotId": "golden-checkpoint::1",
+        "patchKeys": [
+          "patched"
+        ]
+      },
+      "output": {
+        "timelineId": 1
+      },
+      "timestampMs": 1772338951398
+    }
+  ],
+  "replayGate": {
+    "ok": false,
+    "expectedCount": 3,
+    "actualCount": 3,
+    "reason": "entry 0 differs"
   }
 }

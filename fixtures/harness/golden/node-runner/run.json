@@ -69,5 +69,46 @@
     "bindings": {
       "patched": 42
     }
-  }
+  },
+  "determinismLog": [
+    {
+      "seq": 1,
+      "kind": "host",
+      "op": "run",
+      "input": {
+        "entry": "main"
+      },
+      "output": {
+        "status": "running"
+      },
+      "timestampMs": 1772338951394
+    },
+    {
+      "seq": 2,
+      "kind": "host",
+      "op": "checkpoint",
+      "input": {
+        "checkpointId": "golden-checkpoint"
+      },
+      "output": {
+        "snapshotId": "golden-checkpoint::1"
+      },
+      "timestampMs": 1772338951395
+    },
+    {
+      "seq": 3,
+      "kind": "host",
+      "op": "resume",
+      "input": {
+        "snapshotId": "golden-checkpoint::1",
+        "patchKeys": [
+          "patched"
+        ]
+      },
+      "output": {
+        "timelineId": 1
+      },
+      "timestampMs": 1772338951395
+    }
+  ]
 }
